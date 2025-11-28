@@ -1,0 +1,17 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.sln.DotSettings.user
+
+# Log files
+*.binlog

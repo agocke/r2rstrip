@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.ILVerification" Version="10.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/r2rstrip.csproj"/>
+    <ProjectReference Include="../testapp/testapp.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SetConfiguration>Configuration=release</SetConfiguration>
+      <SetPlatform>RuntimeIdentifier=$(RuntimeIdentifier)</SetPlatform>
+      <Targets>Restore;Build;Publish</Targets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Copy testapp artifacts for tests -->
+  <ItemGroup>
+    <!-- IL-only version -->
+    <None Include="../../artifacts/bin/testapp/release_$(RuntimeIdentifier)/testapp.dll"
+          Link="TestData/testapp-il.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+
+    <None Include="../../artifacts/bin/testapp/release_$(RuntimeIdentifier)/testapp.runtimeconfig.json"
+          Link="TestData/testapp-il.runtimeconfig.json"
+          CopyToOutputDirectory="PreserveNewest" />
+
+    <!-- R2R version from publish -->
+    <None Include="../../artifacts/publish/testapp/release_$(RuntimeIdentifier)/testapp.dll"
+          Link="TestData/testapp-r2r.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+
+    <None Include="../../artifacts/publish/testapp/release_$(RuntimeIdentifier)/testapp.runtimeconfig.json"
+          Link="TestData/testapp-r2r.runtimeconfig.json"
+          CopyToOutputDirectory="PreserveNewest" />
+
+  </ItemGroup>
+
+</Project>
