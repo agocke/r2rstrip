@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using ILVerify;
 
@@ -247,6 +248,56 @@ internal static class TestHelpers
         }
 
         return errors;
+    }
+
+    /// <summary>
+    /// Extract the raw #Strings heap from an assembly's metadata.
+    /// Uses the public MetadataReaderExtensions API to locate the heap.
+    /// </summary>
+    public static byte[] GetStringsHeap(string assemblyPath)
+    {
+        using var stream = File.OpenRead(assemblyPath);
+        using var peReader = new PEReader(stream);
+        var metadataReader = peReader.GetMetadataReader();
+
+        // Use the public API to get the heap offset and size
+        int heapOffset = metadataReader.GetHeapMetadataOffset(HeapIndex.String);
+        int heapSize = metadataReader.GetHeapSize(HeapIndex.String);
+
+        // Extract the heap bytes from the metadata block
+        var metadataBlock = peReader.GetMetadata();
+        var metadataBytes = metadataBlock.GetContent().ToArray();
+
+        var result = new byte[heapSize];
+        Array.Copy(metadataBytes, heapOffset, result, 0, heapSize);
+        return result;
+    }
+
+    /// <summary>
+    /// Compare #Strings heaps between two assemblies
+    /// </summary>
+    public static void AssertStringHeapsMatch(string expectedPath, string actualPath)
+    {
+        var expectedHeap = GetStringsHeap(expectedPath);
+        var actualHeap = GetStringsHeap(actualPath);
+
+        if (!expectedHeap.SequenceEqual(actualHeap))
+        {
+            var msg = $"#Strings heap mismatch: expected {expectedHeap.Length} bytes, got {actualHeap.Length} bytes";
+
+            // Find first difference
+            var minLen = Math.Min(expectedHeap.Length, actualHeap.Length);
+            for (int i = 0; i < minLen; i++)
+            {
+                if (expectedHeap[i] != actualHeap[i])
+                {
+                    msg += $"\nFirst difference at offset 0x{i:X4}: expected 0x{expectedHeap[i]:X2}, got 0x{actualHeap[i]:X2}";
+                    break;
+                }
+            }
+
+            throw new Exception(msg);
+        }
     }
 }
 
