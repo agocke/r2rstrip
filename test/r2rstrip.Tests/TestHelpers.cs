@@ -4,6 +4,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using ILVerify;
+using Xunit.Abstractions;
 
 namespace R2RStrip.Tests;
 
@@ -274,12 +275,58 @@ internal static class TestHelpers
     }
 
     /// <summary>
+    /// Enumerate all strings from the #Strings heap
+    /// </summary>
+    public static List<string> EnumerateStrings(string assemblyPath)
+    {
+        using var stream = File.OpenRead(assemblyPath);
+        using var peReader = new PEReader(stream);
+        var reader = peReader.GetMetadataReader();
+
+        var strings = new List<string>();
+        var currentHandle = default(StringHandle);
+
+        while (true)
+        {
+            currentHandle = reader.GetNextHandle(currentHandle);
+            if (currentHandle.IsNil)
+                break;
+
+            strings.Add(reader.GetString(currentHandle));
+        }
+
+        return strings;
+    }
+
+    /// <summary>
     /// Compare #Strings heaps between two assemblies
     /// </summary>
-    public static void AssertStringHeapsMatch(string expectedPath, string actualPath)
+    public static void AssertStringHeapsMatch(string expectedPath, string actualPath, ITestOutputHelper? output = null)
     {
         var expectedHeap = GetStringsHeap(expectedPath);
         var actualHeap = GetStringsHeap(actualPath);
+
+        // Dump the string tables for debugging
+        if (output != null)
+        {
+            output.WriteLine($"\n=== Input Assembly ({Path.GetFileName(expectedPath)}) Strings ===");
+            var expectedStrings = EnumerateStrings(expectedPath);
+            for (int i = 0; i < expectedStrings.Count; i++)
+            {
+                output.WriteLine($"  [{i}] \"{expectedStrings[i]}\"");
+            }
+
+            output.WriteLine($"\n=== Output Assembly ({Path.GetFileName(actualPath)}) Strings ===");
+            var actualStrings = EnumerateStrings(actualPath);
+            for (int i = 0; i < actualStrings.Count; i++)
+            {
+                output.WriteLine($"  [{i}] \"{actualStrings[i]}\"");
+            }
+
+            output.WriteLine($"\n=== Comparison ===");
+            output.WriteLine($"Input heap size: {expectedHeap.Length} bytes, {expectedStrings.Count} strings");
+            output.WriteLine($"Output heap size: {actualHeap.Length} bytes, {actualStrings.Count} strings");
+        }
 
         if (!expectedHeap.SequenceEqual(actualHeap))
         {

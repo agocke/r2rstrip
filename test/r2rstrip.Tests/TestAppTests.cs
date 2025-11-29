@@ -160,6 +160,6 @@ public class TestAppTests : IDisposable
 
         // Verify the #Strings metadata heap is identical between R2R and stripped assemblies
         // This ensures all type names, method names, field names, etc. are preserved
-        TestHelpers.AssertStringHeapsMatch(_r2rDll, strippedDll);
+        TestHelpers.AssertStringHeapsMatch(_r2rDll, strippedDll, _output);
     }
 }
