@@ -48,7 +48,6 @@ public class Program
 
     public static void StripR2R(string inputFile, string outputFile, bool verbose = false)
     {
-        // Read the input assembly to get basic info
         using var inputStream = File.OpenRead(inputFile);
         using var peReader = new PEReader(inputStream);
         var metadataReader = peReader.GetMetadataReader();
@@ -59,133 +58,39 @@ public class Program
             Console.WriteLine($"Reading assembly: {metadataReader.GetString(assemblyDef.Name)}");
         }
 
-        // Create a minimal valid executable that returns exit code 100
-        var metadataBuilder = new MetadataBuilder();
-
-        // Add module (use input assembly name)
-        metadataBuilder.AddModule(
-            generation: 0,
-            moduleName: metadataBuilder.GetOrAddString(metadataReader.GetString(metadataReader.GetModuleDefinition().Name)),
-            mvid: metadataBuilder.GetOrAddGuid(Guid.NewGuid()),
-            encId: default,
-            encBaseId: default);
-
-        // Copy assembly references from input
-        foreach (var handle in metadataReader.AssemblyReferences)
-        {
-            var assemblyRef = metadataReader.GetAssemblyReference(handle);
-
-            var publicKeyOrTokenBlob = default(BlobHandle);
-            if (!assemblyRef.PublicKeyOrToken.IsNil)
-            {
-                publicKeyOrTokenBlob = metadataBuilder.GetOrAddBlob(metadataReader.GetBlobBytes(assemblyRef.PublicKeyOrToken));
-            }
-
-            metadataBuilder.AddAssemblyReference(
-                name: metadataBuilder.GetOrAddString(metadataReader.GetString(assemblyRef.Name)),
-                version: assemblyRef.Version,
-                culture: metadataBuilder.GetOrAddString(metadataReader.GetString(assemblyRef.Culture)),
-                publicKeyOrToken: publicKeyOrTokenBlob,
-                flags: assemblyRef.Flags,
-                hashValue: default);
-        }
-
-        // Add assembly (use input assembly name and version)
-        metadataBuilder.AddAssembly(
-            name: metadataBuilder.GetOrAddString(metadataReader.GetString(assemblyDef.Name)),
-            version: assemblyDef.Version,
-            culture: metadataBuilder.GetOrAddString(metadataReader.GetString(assemblyDef.Culture)),
-            publicKey: default,
-            flags: default,
-            hashAlgorithm: System.Reflection.AssemblyHashAlgorithm.None);
-
-        // Copy type references from input
-        foreach (var handle in metadataReader.TypeReferences)
-        {
-            var typeRef = metadataReader.GetTypeReference(handle);
-
-            metadataBuilder.AddTypeReference(
-                resolutionScope: typeRef.ResolutionScope,
-                @namespace: metadataBuilder.GetOrAddString(metadataReader.GetString(typeRef.Namespace)),
-                name: metadataBuilder.GetOrAddString(metadataReader.GetString(typeRef.Name)));
-        }
-
-        // Copy member references from input
-        foreach (var handle in metadataReader.MemberReferences)
-        {
-            var memberRef = metadataReader.GetMemberReference(handle);
-
-            metadataBuilder.AddMemberReference(
-                parent: memberRef.Parent,
-                name: metadataBuilder.GetOrAddString(metadataReader.GetString(memberRef.Name)),
-                signature: metadataBuilder.GetOrAddBlob(metadataReader.GetBlobBytes(memberRef.Signature)));
-        }
-
-        // Create IL stream for the single Main method
-        var ilBuilder = new BlobBuilder();
-        var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
-
-        // Create a simple Main method body that returns 100
-        var mainIlBuilder = new BlobBuilder();
-        var mainIl = new InstructionEncoder(mainIlBuilder);
-        mainIl.LoadConstantI4(100);
-        mainIl.OpCode(ILOpCode.Ret);
-
-        int mainBodyOffset = methodBodyEncoder.AddMethodBody(
-            instructionEncoder: mainIl,
-            maxStack: 1,
-            localVariablesSignature: default,
-            attributes: MethodBodyAttributes.None);
-
-        // Copy type definitions (just the type metadata, no methods)
-        foreach (var handle in metadataReader.TypeDefinitions)
-        {
-            var typeDef = metadataReader.GetTypeDefinition(handle);
-
-            metadataBuilder.AddTypeDefinition(
-                attributes: typeDef.Attributes,
-                @namespace: metadataBuilder.GetOrAddString(metadataReader.GetString(typeDef.Namespace)),
-                name: metadataBuilder.GetOrAddString(metadataReader.GetString(typeDef.Name)),
-                baseType: typeDef.BaseType,
-                fieldList: MetadataTokens.FieldDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.Field) + 1),
-                methodList: MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef) + 1));
-        }
-
-        // Add a single Main method to the Program type
-        var programTypeHandle = MetadataTokens.TypeDefinitionHandle(2); // Assuming Program is the 2nd type
-
-        var mainMethodSignature = new BlobBuilder();
-        var sigEncoder = new BlobEncoder(mainMethodSignature).MethodSignature();
-        sigEncoder.Parameters(1,
-            returnType => returnType.Type().Int32(),
-            parameters =>
-            {
-                var paramType = parameters.AddParameter().Type();
-                paramType.SZArray().String();
-            });
-
-        metadataBuilder.AddMethodDefinition(
-            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
-            implAttributes: MethodImplAttributes.IL,
-            name: metadataBuilder.GetOrAddString("<Main>$"),
-            signature: metadataBuilder.GetOrAddBlob(mainMethodSignature),
-            bodyOffset: mainBodyOffset,
-            parameterList: default);
-
-        // Find entry point
-        var entryPoint = default(MethodDefinitionHandle);
+        // Find entry point from source
+        var entryPointHandle = default(MethodDefinitionHandle);
         var corHeader = peReader.PEHeaders.CorHeader;
         if (corHeader != null && corHeader.EntryPointTokenOrRelativeVirtualAddress != 0)
         {
             int token = (int)corHeader.EntryPointTokenOrRelativeVirtualAddress;
             var sourceHandle = MetadataTokens.EntityHandle(token);
-
             if (sourceHandle.Kind == HandleKind.MethodDefinition)
             {
-                var sourceMethodHandle = (MethodDefinitionHandle)sourceHandle;
-                entryPoint = MetadataTokens.MethodDefinitionHandle(MetadataTokens.GetRowNumber(sourceMethodHandle));
+                entryPointHandle = (MethodDefinitionHandle)sourceHandle;
             }
-        }        // Build the PE
+        }
+
+        // Create metadata builder and IL stream
+        var metadataBuilder = new MetadataBuilder();
+        var ilBuilder = new BlobBuilder();
+        var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
+
+        // Use MetadataCopier to copy all metadata from source
+        var copier = new MetadataCopier(
+            metadataReader,
+            metadataBuilder,
+            verbose);
+
+        copier.CopyAll();
+
+        // Add a stub Program class with Main method for test validation
+        AddStubProgramWithMain(metadataBuilder, methodBodyEncoder, verbose);
+
+        // Entry point is the last method we just added
+        var entryPoint = MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef));
+
+        // Build the PE
         var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
         var peBuilder = new ManagedPEBuilder(
             header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Dll),
@@ -207,5 +112,62 @@ public class Program
             Console.WriteLine($"Created minimal assembly: {new FileInfo(outputFile).Length} bytes");
         }
     }
-}
 
+    private static void AddStubProgramWithMain(
+        MetadataBuilder metadataBuilder,
+        MethodBodyStreamEncoder methodBodyEncoder,
+        bool verbose)
+    {
+        // Add a Program type
+        var objectTypeRef = metadataBuilder.AddTypeReference(
+            resolutionScope: metadataBuilder.AddAssemblyReference(
+                name: metadataBuilder.GetOrAddString("System.Runtime"),
+                version: new Version(9, 0, 0, 0),
+                culture: default,
+                publicKeyOrToken: metadataBuilder.GetOrAddBlob(new byte[] {
+                    0xb0, 0x3f, 0x5f, 0x7f, 0x11, 0xd5, 0x0a, 0x3a }),
+                flags: default,
+                hashValue: default),
+            @namespace: metadataBuilder.GetOrAddString("System"),
+            name: metadataBuilder.GetOrAddString("Object"));
+
+        metadataBuilder.AddTypeDefinition(
+            attributes: TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.BeforeFieldInit,
+            @namespace: default,
+            name: metadataBuilder.GetOrAddString("Program"),
+            baseType: objectTypeRef,
+            fieldList: MetadataTokens.FieldDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.Field) + 1),
+            methodList: MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef) + 1));
+
+        // Create stub Main method body (returns 100)
+        // IL: ldc.i4.s 100, ret
+        var codeBuilder = new BlobBuilder();
+        var ilBuilder = new InstructionEncoder(codeBuilder);
+
+        ilBuilder.OpCode(ILOpCode.Ldc_i4_s);
+        codeBuilder.WriteByte(100);
+        ilBuilder.OpCode(ILOpCode.Ret);
+
+        var bodyOffset = methodBodyEncoder.AddMethodBody(ilBuilder);
+
+        // Add Main method signature: int32 Main()
+        var signatureBuilder = new BlobBuilder();
+        new BlobEncoder(signatureBuilder)
+            .MethodSignature()
+            .Parameters(0, returnType => returnType.Type().Int32(), parameters => { });
+
+        // Reuse the existing "<Main>$" string from the original assembly
+        metadataBuilder.AddMethodDefinition(
+            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
+            implAttributes: MethodImplAttributes.IL,
+            name: metadataBuilder.GetOrAddString("<Main>$"),
+            signature: metadataBuilder.GetOrAddBlob(signatureBuilder),
+            bodyOffset: bodyOffset,
+            parameterList: MetadataTokens.ParameterHandle(metadataBuilder.GetRowCount(TableIndex.Param) + 1));
+
+        if (verbose)
+        {
+            Console.WriteLine("  Added stub Program.<Main>$() method (returns 100)");
+        }
+    }
+}

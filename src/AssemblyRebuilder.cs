@@ -42,13 +42,26 @@ public class AssemblyRebuilder
         var ilBuilder = new BlobBuilder();
         var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
 
+        // Find entry point
+        var entryPointHandle = default(MethodDefinitionHandle);
+        var corHeader = peReader.PEHeaders.CorHeader;
+        if (corHeader != null && corHeader.EntryPointTokenOrRelativeVirtualAddress != 0)
+        {
+            int token = (int)corHeader.EntryPointTokenOrRelativeVirtualAddress;
+            var sourceHandle = MetadataTokens.EntityHandle(token);
+            if (sourceHandle.Kind == HandleKind.MethodDefinition)
+            {
+                entryPointHandle = (MethodDefinitionHandle)sourceHandle;
+            }
+        }
+
         if (_verbose)
         {
             _output.WriteLine("Copying metadata...");
         }
 
         // Build metadata and IL
-        var copier = new MetadataCopier(metadataReader, metadataBuilder, methodBodyEncoder, peReader, _verbose);
+        var copier = new MetadataCopier(metadataReader, metadataBuilder, _verbose);
         copier.CopyAll();
 
         if (_verbose)
