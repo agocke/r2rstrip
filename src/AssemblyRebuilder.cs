@@ -87,18 +87,12 @@ public class AssemblyRebuilder
         }
     }
 
-    private ManagedPEBuilder BuildPE(
+    private PEBuilder BuildPE(
         MetadataReader metadataReader,
         MetadataBuilder metadataBuilder,
         BlobBuilder ilStream,
         PEReader peReader)
     {
-        // Get assembly info
-        var assemblyDef = metadataReader.GetAssemblyDefinition();
-
-        // Build metadata root
-        var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
-
         // Create PE headers
         var peHeaderBuilder = new PEHeaderBuilder(
             imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Bit32Machine);
@@ -122,13 +116,10 @@ public class AssemblyRebuilder
             }
         }
 
-        // Build the managed PE
-        return new ManagedPEBuilder(
+        // Build the PE using our custom builder that writes metadata directly
+        return new RawMetadataPEBuilder(
             peHeaderBuilder,
-            metadataRootBuilder,
-            ilStream,
-            entryPoint: entryPoint,
-            flags: CorFlags.ILOnly,
-            deterministicIdProvider: content => new BlobContentId(Guid.NewGuid(), 0x04030201));
+            CorFlags.ILOnly,
+            entryPoint);
     }
 }
