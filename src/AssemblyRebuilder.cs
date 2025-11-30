@@ -69,8 +69,24 @@ public class AssemblyRebuilder
             _output.WriteLine("Building PE file...");
         }
 
+        // Extract metadata heaps from source assembly
+        var stringHeap = ExtractHeap(peReader, metadataReader, HeapIndex.String);
+        var blobHeap = ExtractHeap(peReader, metadataReader, HeapIndex.Blob);
+        var guidHeap = ExtractHeap(peReader, metadataReader, HeapIndex.Guid);
+        var userStringHeap = ExtractHeap(peReader, metadataReader, HeapIndex.UserString);
+
+        if (_verbose)
+        {
+            _output.WriteLine($"  Extracted heaps:");
+            _output.WriteLine($"    #Strings: {stringHeap.Length} bytes");
+            _output.WriteLine($"    #Blob: {blobHeap.Length} bytes");
+            _output.WriteLine($"    #GUID: {guidHeap.Length} bytes");
+            _output.WriteLine($"    #US: {userStringHeap.Length} bytes");
+        }
+
         // Build the output PE
-        var peBuilder = BuildPE(metadataReader, metadataBuilder, ilBuilder, peReader);
+        var peBuilder = BuildPE(metadataReader, metadataBuilder, ilBuilder, peReader, 
+            stringHeap, blobHeap, guidHeap, userStringHeap);
 
         // Write to file
         var peBlob = new BlobBuilder();
@@ -91,7 +107,11 @@ public class AssemblyRebuilder
         MetadataReader metadataReader,
         MetadataBuilder metadataBuilder,
         BlobBuilder ilStream,
-        PEReader peReader)
+        PEReader peReader,
+        byte[] stringHeap,
+        byte[] blobHeap,
+        byte[] guidHeap,
+        byte[] userStringHeap)
     {
         // Create PE headers
         var peHeaderBuilder = new PEHeaderBuilder(
@@ -120,6 +140,31 @@ public class AssemblyRebuilder
         return new RawMetadataPEBuilder(
             peHeaderBuilder,
             CorFlags.ILOnly,
-            entryPoint);
+            entryPoint,
+            stringHeap,
+            blobHeap,
+            guidHeap,
+            userStringHeap);
+    }
+
+    /// <summary>
+    /// Extract a metadata heap as raw bytes from the source assembly
+    /// </summary>
+    private byte[] ExtractHeap(PEReader peReader, MetadataReader metadataReader, HeapIndex heapIndex)
+    {
+        int heapOffset = metadataReader.GetHeapMetadataOffset(heapIndex);
+        int heapSize = metadataReader.GetHeapSize(heapIndex);
+
+        if (heapSize == 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var metadataBlock = peReader.GetMetadata();
+        var metadataBytes = metadataBlock.GetContent();
+
+        var result = new byte[heapSize];
+        metadataBytes.Slice(heapOffset, heapSize).CopyTo(result);
+        return result;
     }
 }

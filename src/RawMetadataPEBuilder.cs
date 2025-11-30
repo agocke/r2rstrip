@@ -16,16 +16,30 @@ public class RawMetadataPEBuilder : PEBuilder
     private readonly PEDirectoriesBuilder _peDirectoriesBuilder;
     private readonly CorFlags _corFlags;
     private readonly MethodDefinitionHandle _entryPoint;
+    private readonly byte[] _stringHeap;
+    private readonly byte[] _blobHeap;
+    private readonly byte[] _guidHeap;
+    private readonly byte[] _userStringHeap;
 
     public RawMetadataPEBuilder(
         PEHeaderBuilder header,
         CorFlags corFlags = CorFlags.ILOnly,
-        MethodDefinitionHandle entryPoint = default)
+        MethodDefinitionHandle entryPoint = default,
+        byte[]? stringHeap = null,
+        byte[]? blobHeap = null,
+        byte[]? guidHeap = null,
+        byte[]? userStringHeap = null)
         : base(header, deterministicIdProvider: null)
     {
         _peDirectoriesBuilder = new PEDirectoriesBuilder();
         _corFlags = corFlags;
         _entryPoint = entryPoint;
+        
+        // Use provided heaps or create minimal ones
+        _stringHeap = stringHeap ?? new byte[] { 0 };
+        _blobHeap = blobHeap ?? new byte[] { 0 };
+        _guidHeap = guidHeap ?? Array.Empty<byte>();
+        _userStringHeap = userStringHeap ?? new byte[] { 0 };
     }
 
     protected override ImmutableArray<Section> CreateSections()
@@ -148,28 +162,28 @@ public class RawMetadataPEBuilder : PEBuilder
         int tablesStreamSize = WriteMinimalTablesStream(out var tablesStreamData);
         WriteStreamHeader(builder, streamsOffset, tablesStreamSize, "#~");
         
-        // Stream 2: #Strings - just a single null byte
-        int stringsStreamSize = 1;
+        // Stream 2: #Strings - use actual heap data
+        int stringsStreamSize = _stringHeap.Length;
         WriteStreamHeader(builder, streamsOffset + tablesStreamSize, stringsStreamSize, "#Strings");
         
-        // Stream 3: #US (user strings) - just a single null byte
-        int usStreamSize = 1;
+        // Stream 3: #US (user strings) - use actual heap data
+        int usStreamSize = _userStringHeap.Length;
         WriteStreamHeader(builder, streamsOffset + tablesStreamSize + stringsStreamSize, usStreamSize, "#US");
         
-        // Stream 4: #GUID - empty (size 0)
-        int guidStreamSize = 0;
+        // Stream 4: #GUID - use actual heap data
+        int guidStreamSize = _guidHeap.Length;
         WriteStreamHeader(builder, streamsOffset + tablesStreamSize + stringsStreamSize + usStreamSize, guidStreamSize, "#GUID");
         
-        // Stream 5: #Blob - just a single null byte
-        int blobStreamSize = 1;
+        // Stream 5: #Blob - use actual heap data
+        int blobStreamSize = _blobHeap.Length;
         WriteStreamHeader(builder, streamsOffset + tablesStreamSize + stringsStreamSize + usStreamSize + guidStreamSize, blobStreamSize, "#Blob");
         
         // Now write the actual stream data
         builder.WriteBytes(tablesStreamData);
-        builder.WriteByte(0); // #Strings
-        builder.WriteByte(0); // #US
-        // #GUID is empty
-        builder.WriteByte(0); // #Blob
+        builder.WriteBytes(_stringHeap);
+        builder.WriteBytes(_userStringHeap);
+        builder.WriteBytes(_guidHeap);
+        builder.WriteBytes(_blobHeap);
         
         return builder.Count - startOffset;
     }

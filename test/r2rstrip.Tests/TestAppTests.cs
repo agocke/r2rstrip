@@ -162,4 +162,48 @@ public class TestAppTests : IDisposable
         // This ensures all type names, method names, field names, etc. are preserved
         TestHelpers.AssertStringHeapsMatch(_r2rDll, strippedDll, _output);
     }
+
+    [Fact]
+    public void TestApp_PreservesBlobHeap()
+    {
+        var strippedDll = StripTestApp();
+
+        // Verify the #Blob metadata heap is identical
+        // This ensures method signatures, custom attributes, etc. are preserved
+        TestHelpers.AssertBlobHeapsMatch(_r2rDll, strippedDll, _output);
+    }
+
+    [Fact]
+    public void TestApp_PreservesGuidHeap()
+    {
+        var strippedDll = StripTestApp();
+
+        // Verify the #GUID metadata heap is identical
+        // This ensures module MVIDs and other GUIDs are preserved
+        TestHelpers.AssertGuidHeapsMatch(_r2rDll, strippedDll, _output);
+    }
+
+    [Fact]
+    public void TestApp_PreservesUserStringHeap()
+    {
+        var strippedDll = StripTestApp();
+
+        // Verify the #US (user strings) metadata heap is identical
+        // This ensures string literals in the code are preserved
+        TestHelpers.AssertUserStringHeapsMatch(_r2rDll, strippedDll, _output);
+    }
+
+    [Fact]
+    public void TestApp_AllMetadataHeapsPreserved()
+    {
+        var strippedDll = StripTestApp();
+
+        // Comprehensive test: all four metadata heaps should be byte-for-byte identical
+        _output.WriteLine("Verifying all metadata heaps are preserved...");
+        TestHelpers.AssertStringHeapsMatch(_r2rDll, strippedDll, _output);
+        TestHelpers.AssertBlobHeapsMatch(_r2rDll, strippedDll, _output);
+        TestHelpers.AssertGuidHeapsMatch(_r2rDll, strippedDll, _output);
+        TestHelpers.AssertUserStringHeapsMatch(_r2rDll, strippedDll, _output);
+        _output.WriteLine("✓ All metadata heaps preserved!");
+    }
 }

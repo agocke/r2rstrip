@@ -275,6 +275,66 @@ internal static class TestHelpers
     }
 
     /// <summary>
+    /// Extract the raw #Blob heap from an assembly's metadata.
+    /// </summary>
+    public static byte[] GetBlobHeap(string assemblyPath)
+    {
+        using var stream = File.OpenRead(assemblyPath);
+        using var peReader = new PEReader(stream);
+        var metadataReader = peReader.GetMetadataReader();
+
+        int heapOffset = metadataReader.GetHeapMetadataOffset(HeapIndex.Blob);
+        int heapSize = metadataReader.GetHeapSize(HeapIndex.Blob);
+
+        var metadataBlock = peReader.GetMetadata();
+        var metadataBytes = metadataBlock.GetContent().ToArray();
+
+        var result = new byte[heapSize];
+        Array.Copy(metadataBytes, heapOffset, result, 0, heapSize);
+        return result;
+    }
+
+    /// <summary>
+    /// Extract the raw #GUID heap from an assembly's metadata.
+    /// </summary>
+    public static byte[] GetGuidHeap(string assemblyPath)
+    {
+        using var stream = File.OpenRead(assemblyPath);
+        using var peReader = new PEReader(stream);
+        var metadataReader = peReader.GetMetadataReader();
+
+        int heapOffset = metadataReader.GetHeapMetadataOffset(HeapIndex.Guid);
+        int heapSize = metadataReader.GetHeapSize(HeapIndex.Guid);
+
+        var metadataBlock = peReader.GetMetadata();
+        var metadataBytes = metadataBlock.GetContent().ToArray();
+
+        var result = new byte[heapSize];
+        Array.Copy(metadataBytes, heapOffset, result, 0, heapSize);
+        return result;
+    }
+
+    /// <summary>
+    /// Extract the raw #US (user strings) heap from an assembly's metadata.
+    /// </summary>
+    public static byte[] GetUserStringHeap(string assemblyPath)
+    {
+        using var stream = File.OpenRead(assemblyPath);
+        using var peReader = new PEReader(stream);
+        var metadataReader = peReader.GetMetadataReader();
+
+        int heapOffset = metadataReader.GetHeapMetadataOffset(HeapIndex.UserString);
+        int heapSize = metadataReader.GetHeapSize(HeapIndex.UserString);
+
+        var metadataBlock = peReader.GetMetadata();
+        var metadataBytes = metadataBlock.GetContent().ToArray();
+
+        var result = new byte[heapSize];
+        Array.Copy(metadataBytes, heapOffset, result, 0, heapSize);
+        return result;
+    }
+
+    /// <summary>
     /// Enumerate all strings from the #Strings heap
     /// </summary>
     public static List<string> EnumerateStrings(string assemblyPath)
@@ -339,6 +399,84 @@ internal static class TestHelpers
                 if (expectedHeap[i] != actualHeap[i])
                 {
                     msg += $"\nFirst difference at offset 0x{i:X4}: expected 0x{expectedHeap[i]:X2}, got 0x{actualHeap[i]:X2}";
+                    break;
+                }
+            }
+
+            throw new Exception(msg);
+        }
+    }
+
+    /// <summary>
+    /// Compare #Blob heaps between two assemblies
+    /// </summary>
+    public static void AssertBlobHeapsMatch(string expectedPath, string actualPath, ITestOutputHelper? output = null)
+    {
+        var expectedHeap = GetBlobHeap(expectedPath);
+        var actualHeap = GetBlobHeap(actualPath);
+
+        if (output != null)
+        {
+            output.WriteLine($"\n=== #Blob Heap Comparison ===");
+            output.WriteLine($"Expected: {expectedHeap.Length} bytes");
+            output.WriteLine($"Actual: {actualHeap.Length} bytes");
+        }
+
+        AssertHeapMatch(expectedHeap, actualHeap, "#Blob");
+    }
+
+    /// <summary>
+    /// Compare #GUID heaps between two assemblies
+    /// </summary>
+    public static void AssertGuidHeapsMatch(string expectedPath, string actualPath, ITestOutputHelper? output = null)
+    {
+        var expectedHeap = GetGuidHeap(expectedPath);
+        var actualHeap = GetGuidHeap(actualPath);
+
+        if (output != null)
+        {
+            output.WriteLine($"\n=== #GUID Heap Comparison ===");
+            output.WriteLine($"Expected: {expectedHeap.Length} bytes ({expectedHeap.Length / 16} GUIDs)");
+            output.WriteLine($"Actual: {actualHeap.Length} bytes ({actualHeap.Length / 16} GUIDs)");
+        }
+
+        AssertHeapMatch(expectedHeap, actualHeap, "#GUID");
+    }
+
+    /// <summary>
+    /// Compare #US (user strings) heaps between two assemblies
+    /// </summary>
+    public static void AssertUserStringHeapsMatch(string expectedPath, string actualPath, ITestOutputHelper? output = null)
+    {
+        var expectedHeap = GetUserStringHeap(expectedPath);
+        var actualHeap = GetUserStringHeap(actualPath);
+
+        if (output != null)
+        {
+            output.WriteLine($"\n=== #US (User Strings) Heap Comparison ===");
+            output.WriteLine($"Expected: {expectedHeap.Length} bytes");
+            output.WriteLine($"Actual: {actualHeap.Length} bytes");
+        }
+
+        AssertHeapMatch(expectedHeap, actualHeap, "#US");
+    }
+
+    /// <summary>
+    /// Helper method to assert two heaps match byte-for-byte
+    /// </summary>
+    private static void AssertHeapMatch(byte[] expected, byte[] actual, string heapName)
+    {
+        if (!expected.SequenceEqual(actual))
+        {
+            var msg = $"{heapName} heap mismatch: expected {expected.Length} bytes, got {actual.Length} bytes";
+
+            // Find first difference
+            var minLen = Math.Min(expected.Length, actual.Length);
+            for (int i = 0; i < minLen; i++)
+            {
+                if (expected[i] != actual[i])
+                {
+                    msg += $"\nFirst difference at offset 0x{i:X4}: expected 0x{expected[i]:X2}, got 0x{actual[i]:X2}";
                     break;
                 }
             }

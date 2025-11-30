@@ -295,17 +295,18 @@ public class AssemblyRebuilder
 
 **Status:** ✅ We can now write a valid minimal managed PE file using hand-crafted metadata structures, without `MetadataBuilder`. Foundation is in place for copying real metadata.
 
-### Phase 1: Copy Metadata Heaps (NEXT - 2-3 hours)
-- [ ] Update `RawMetadataPEBuilder` to accept source `MetadataReader`
-- [ ] Implement heap extraction from source assembly:
-  - [ ] Extract #Strings heap raw bytes
-  - [ ] Extract #Blob heap raw bytes
-  - [ ] Extract #GUID heap raw bytes
-  - [ ] Extract #US (user strings) heap raw bytes
-- [ ] Update `WriteMinimalMetadata()` to write copied heaps instead of minimal ones
-- [ ] Test: verify `TestApp_PreservesStringTable` passes
+### Phase 1: Copy Metadata Heaps ✓ (COMPLETED)
+- [x] Create comprehensive tests for all four heaps
+- [x] Update `RawMetadataPEBuilder` to accept source `MetadataReader` and `PEReader`
+- [x] Implement heap extraction from source assembly:
+  - [x] Extract #Strings heap raw bytes
+  - [x] Extract #Blob heap raw bytes
+  - [x] Extract #GUID heap raw bytes
+  - [x] Extract #US (user strings) heap raw bytes
+- [x] Update `WriteMinimalMetadata()` to write copied heaps instead of minimal ones
+- [x] Test: verify all heap tests pass (`TestApp_Preserves*Heap`)
 
-**Goal:** Copy all metadata heaps byte-for-byte from source to output.
+**Status:** ✅ All four metadata heaps are now copied byte-for-byte from source to output. All heap preservation tests pass!
 
 ### Phase 2: Copy Metadata Tables (2-3 hours)
 - [ ] Extract metadata tables stream (#~) from source assembly
@@ -373,25 +374,37 @@ We've successfully created a foundation for writing PE files with hand-crafted m
 - ❌ Copying IL method bodies
 - ❌ Adjusting MethodDef RVAs
 
-**Test Results:**
-- 8 tests passing (including both `RawMetadataPEBuilder` tests)
-- 2 tests skipped (method definition/execution - expected)
-- 3 tests failing (expected - we're not copying metadata yet):
-  - `TestApp_PreservesTypeDefinitions` - No types copied
-  - `TestApp_PreservesStringTable` - No strings copied  
-  - `TestApp_ExecutesWithStubMain` - Invalid assembly name (minimal Assembly table)
+**Test Results (After Phase 1):**
+- 10 tests passing (✅ All heap tests + basic PE structure)
+- 2 tests skipped (method definition/execution - expected for Phase 2/3)
+- 2 tests failing (expected - Phase 2 not yet implemented):
+  - `TestApp_PreservesTypeDefinitions` - No types copied (need Phase 2)
+  - `TestApp_ExecutesWithStubMain` - Invalid assembly name (need Phase 2)
 
-### 🎯 Next Steps: Phase 1 - Copy Metadata Heaps
+**Heap Tests:** ✅ All 5 heap tests now passing:
+- ✅ `TestApp_PreservesStringTable` - #Strings heap preserved (844 bytes)
+- ✅ `TestApp_PreservesBlobHeap` - #Blob heap preserved (340 bytes)
+- ✅ `TestApp_PreservesGuidHeap` - #GUID heap preserved (16 bytes)
+- ✅ `TestApp_PreservesUserStringHeap` - #US heap preserved (192 bytes)
+- ✅ `TestApp_AllMetadataHeapsPreserved` - Comprehensive test passes
 
-The immediate next task is to copy the metadata heaps from the source assembly.
+### 🎯 Next Steps: Phase 2 - Copy Metadata Tables
 
-**Action Items:**
-1. Pass `MetadataReader` to `RawMetadataPEBuilder` constructor
-2. Extract heap bytes from source assembly using `MetadataReader`
-3. Replace minimal heap writing with actual heap copying
-4. Verify `TestApp_PreservesStringTable` passes
+The immediate next task is to copy the metadata tables from the source assembly.
 
-Once Phase 1 is complete, we'll be able to preserve all strings, blobs, and GUIDs from the source assembly.
+**What We Have Now:**
+- ✅ Valid minimal PE file structure
+- ✅ All four metadata heaps copied byte-for-byte
+- ❌ Metadata tables (still using minimal Module + Assembly tables)
+
+**Action Items for Phase 2:**
+1. Extract metadata tables stream (#~) raw bytes from source assembly
+2. Parse table stream header (valid/sorted bitmasks, row counts)
+3. Replace minimal tables with actual table data
+4. Write complete tables stream to output
+5. Verify `TestApp_PreservesTypeDefinitions` passes
+
+Once Phase 2 is complete, we'll have all types, methods, and fields from the source assembly.
 
 ---
 
