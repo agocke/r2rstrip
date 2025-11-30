@@ -48,69 +48,8 @@ public class Program
 
     public static void StripR2R(string inputFile, string outputFile, bool verbose = false)
     {
-        using var inputStream = File.OpenRead(inputFile);
-        using var peReader = new PEReader(inputStream);
-        var metadataReader = peReader.GetMetadataReader();
-        var assemblyDef = metadataReader.GetAssemblyDefinition();
-
-        if (verbose)
-        {
-            Console.WriteLine($"Reading assembly: {metadataReader.GetString(assemblyDef.Name)}");
-        }
-
-        // Find entry point from source
-        var entryPointHandle = default(MethodDefinitionHandle);
-        var corHeader = peReader.PEHeaders.CorHeader;
-        if (corHeader != null && corHeader.EntryPointTokenOrRelativeVirtualAddress != 0)
-        {
-            int token = (int)corHeader.EntryPointTokenOrRelativeVirtualAddress;
-            var sourceHandle = MetadataTokens.EntityHandle(token);
-            if (sourceHandle.Kind == HandleKind.MethodDefinition)
-            {
-                entryPointHandle = (MethodDefinitionHandle)sourceHandle;
-            }
-        }
-
-        // Create metadata builder and IL stream
-        var metadataBuilder = new MetadataBuilder();
-        var ilBuilder = new BlobBuilder();
-        var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
-
-        // Use MetadataCopier to copy all metadata from source
-        var copier = new MetadataCopier(
-            metadataReader,
-            metadataBuilder,
-            verbose);
-
-        copier.CopyAll();
-
-        // Add a stub Program class with Main method for test validation
-        AddStubProgramWithMain(metadataBuilder, methodBodyEncoder, verbose);
-
-        // Entry point is the last method we just added
-        var entryPoint = MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef));
-
-        // Build the PE
-        var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
-        var peBuilder = new ManagedPEBuilder(
-            header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Dll),
-            metadataRootBuilder: metadataRootBuilder,
-            ilStream: ilBuilder,
-            entryPoint: entryPoint,
-            flags: CorFlags.ILOnly,
-            deterministicIdProvider: content => new BlobContentId(Guid.NewGuid(), 0x04030201));
-
-        // Serialize to file
-        var peBlob = new BlobBuilder();
-        peBuilder.Serialize(peBlob);
-
-        using var outputStream = File.Create(outputFile);
-        peBlob.WriteContentTo(outputStream);
-
-        if (verbose)
-        {
-            Console.WriteLine($"Created minimal assembly: {new FileInfo(outputFile).Length} bytes");
-        }
+        var rebuilder = new AssemblyRebuilder(verbose, Console.Out);
+        rebuilder.RebuildAsILOnly(inputFile, outputFile);
     }
 
     private static void AddStubProgramWithMain(
