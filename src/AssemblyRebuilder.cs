@@ -61,7 +61,7 @@ public class AssemblyRebuilder
         }
 
         // Build metadata and IL
-        var copier = new MetadataCopier(metadataReader, metadataBuilder, _verbose);
+        var copier = new MetadataCopier(metadataReader, metadataBuilder, peReader, methodBodyEncoder, _verbose);
         copier.CopyAll();
 
         if (_verbose)

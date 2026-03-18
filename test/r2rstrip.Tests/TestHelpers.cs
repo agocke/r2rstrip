@@ -216,12 +216,20 @@ internal static class TestHelpers
         {
             var resolver = new SimpleResolver();
 
-            // Add reference assemblies from .NET SDK
-            var refAssemblyPath = Path.Combine(
+            // Add reference assemblies from .NET SDK (find the right version dynamically)
+            var packsBase = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".local/share/dnvm/dn/packs/Microsoft.NETCore.App.Ref/10.0.0/ref/net10.0");
+                ".local/share/dnvm/dn/packs/Microsoft.NETCore.App.Ref");
 
-            if (Directory.Exists(refAssemblyPath))
+            string? refAssemblyPath = null;
+            if (Directory.Exists(packsBase))
+            {
+                refAssemblyPath = Directory.GetDirectories(packsBase)
+                    .Select(d => Path.Combine(d, "ref", "net10.0"))
+                    .FirstOrDefault(Directory.Exists);
+            }
+
+            if (refAssemblyPath != null)
             {
                 foreach (var dll in Directory.GetFiles(refAssemblyPath, "*.dll"))
                 {

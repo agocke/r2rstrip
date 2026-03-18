@@ -109,7 +109,7 @@ public class TestAppTests : IDisposable
         Assert.Empty(errors);
     }
 
-    [Fact(Skip = "TODO: Need to copy method definitions from original assembly")]
+    [Fact]
     public void TestApp_PreservesMethodDefinitions()
     {
         var strippedDll = StripTestApp();
@@ -121,20 +121,17 @@ public class TestAppTests : IDisposable
     }
 
     [Fact]
-    public async Task TestApp_ExecutesWithStubMain()
+    public async Task TestApp_ExecutesSuccessfully()
     {
-        // Ensure stripped version exists
         var strippedDll = StripTestApp();
 
-        // Run stripped version
         var strippedResult = await TestHelpers.RunDll(strippedDll);
         _output.WriteLine(strippedResult.Output);
 
-        // With stub Main method, we expect exit code 100
-        Assert.Equal(100, strippedResult.ExitCode);
+        Assert.Equal(0, strippedResult.ExitCode);
     }
 
-    [Fact(Skip = "TODO: Need to copy method definitions with proper IL bodies")]
+    [Fact]
     public async Task TestApp_ExecutesCorrectly()
     {
         // Ensure stripped version exists

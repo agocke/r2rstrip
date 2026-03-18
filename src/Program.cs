@@ -51,10 +51,10 @@ public class Program
         using var inputStream = File.OpenRead(inputFile);
         using var peReader = new PEReader(inputStream);
         var metadataReader = peReader.GetMetadataReader();
-        var assemblyDef = metadataReader.GetAssemblyDefinition();
 
         if (verbose)
         {
+            var assemblyDef = metadataReader.GetAssemblyDefinition();
             Console.WriteLine($"Reading assembly: {metadataReader.GetString(assemblyDef.Name)}");
         }
 
@@ -76,19 +76,15 @@ public class Program
         var ilBuilder = new BlobBuilder();
         var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
 
-        // Use MetadataCopier to copy all metadata from source
+        // Copy all metadata and IL bodies from source
         var copier = new MetadataCopier(
             metadataReader,
             metadataBuilder,
+            peReader,
+            methodBodyEncoder,
             verbose);
 
         copier.CopyAll();
-
-        // Add a stub Program class with Main method for test validation
-        AddStubProgramWithMain(metadataBuilder, methodBodyEncoder, verbose);
-
-        // Entry point is the last method we just added
-        var entryPoint = MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef));
 
         // Build the PE
         var metadataRootBuilder = new MetadataRootBuilder(metadataBuilder);
@@ -96,7 +92,7 @@ public class Program
             header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Dll),
             metadataRootBuilder: metadataRootBuilder,
             ilStream: ilBuilder,
-            entryPoint: entryPoint,
+            entryPoint: entryPointHandle,
             flags: CorFlags.ILOnly,
             deterministicIdProvider: content => new BlobContentId(Guid.NewGuid(), 0x04030201));
 
@@ -109,65 +105,7 @@ public class Program
 
         if (verbose)
         {
-            Console.WriteLine($"Created minimal assembly: {new FileInfo(outputFile).Length} bytes");
-        }
-    }
-
-    private static void AddStubProgramWithMain(
-        MetadataBuilder metadataBuilder,
-        MethodBodyStreamEncoder methodBodyEncoder,
-        bool verbose)
-    {
-        // Add a Program type
-        var objectTypeRef = metadataBuilder.AddTypeReference(
-            resolutionScope: metadataBuilder.AddAssemblyReference(
-                name: metadataBuilder.GetOrAddString("System.Runtime"),
-                version: new Version(9, 0, 0, 0),
-                culture: default,
-                publicKeyOrToken: metadataBuilder.GetOrAddBlob(new byte[] {
-                    0xb0, 0x3f, 0x5f, 0x7f, 0x11, 0xd5, 0x0a, 0x3a }),
-                flags: default,
-                hashValue: default),
-            @namespace: metadataBuilder.GetOrAddString("System"),
-            name: metadataBuilder.GetOrAddString("Object"));
-
-        metadataBuilder.AddTypeDefinition(
-            attributes: TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.BeforeFieldInit,
-            @namespace: default,
-            name: metadataBuilder.GetOrAddString("Program"),
-            baseType: objectTypeRef,
-            fieldList: MetadataTokens.FieldDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.Field) + 1),
-            methodList: MetadataTokens.MethodDefinitionHandle(metadataBuilder.GetRowCount(TableIndex.MethodDef) + 1));
-
-        // Create stub Main method body (returns 100)
-        // IL: ldc.i4.s 100, ret
-        var codeBuilder = new BlobBuilder();
-        var ilBuilder = new InstructionEncoder(codeBuilder);
-
-        ilBuilder.OpCode(ILOpCode.Ldc_i4_s);
-        codeBuilder.WriteByte(100);
-        ilBuilder.OpCode(ILOpCode.Ret);
-
-        var bodyOffset = methodBodyEncoder.AddMethodBody(ilBuilder);
-
-        // Add Main method signature: int32 Main()
-        var signatureBuilder = new BlobBuilder();
-        new BlobEncoder(signatureBuilder)
-            .MethodSignature()
-            .Parameters(0, returnType => returnType.Type().Int32(), parameters => { });
-
-        // Reuse the existing "<Main>$" string from the original assembly
-        metadataBuilder.AddMethodDefinition(
-            attributes: MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig,
-            implAttributes: MethodImplAttributes.IL,
-            name: metadataBuilder.GetOrAddString("<Main>$"),
-            signature: metadataBuilder.GetOrAddBlob(signatureBuilder),
-            bodyOffset: bodyOffset,
-            parameterList: MetadataTokens.ParameterHandle(metadataBuilder.GetRowCount(TableIndex.Param) + 1));
-
-        if (verbose)
-        {
-            Console.WriteLine("  Added stub Program.<Main>$() method (returns 100)");
+            Console.WriteLine($"Created IL-only assembly: {new FileInfo(outputFile).Length} bytes");
         }
     }
 }
