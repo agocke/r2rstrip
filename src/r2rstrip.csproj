@@ -5,6 +5,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <!-- NuGet tool packaging -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>r2rstrip</ToolCommandName>
+    <PackageId>r2rstrip</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>agocke</Authors>
+    <Description>Strips ReadyToRun (R2R) native images from .NET PE assemblies, producing IL-only output with all metadata preserved.</Description>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/agocke/r2rstrip</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/agocke/r2rstrip.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>dotnet;r2r;readytorun;il;pe;metadata</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/" Condition="Exists('../README.md')" />
+  </ItemGroup>
 
 </Project>
