@@ -97,6 +97,19 @@ public class TestAppTests : IDisposable
         var metadata = TestHelpers.GetMetadataInfo(strippedDll);
         Assert.Contains("Calculator", metadata.TypeNames);
         Assert.Contains("Person", metadata.TypeNames);
+        Assert.Contains("Repository`1", metadata.TypeNames);
+    }
+
+    [Fact]
+    public void TestApp_PreservesGenericParameters()
+    {
+        var strippedDll = StripTestApp();
+
+        // Verify generic parameter metadata survives stripping
+        var genericInfo = TestHelpers.GetGenericParamInfo(strippedDll);
+
+        // Repository<T> should have one generic param "T"
+        Assert.Contains(genericInfo, g => g.Owner == "Repository`1" && g.Name == "T");
     }
 
     [Fact]
@@ -109,7 +122,7 @@ public class TestAppTests : IDisposable
         Assert.Empty(errors);
     }
 
-    [Fact(Skip = "TODO: Need to copy method definitions from original assembly")]
+    [Fact]
     public void TestApp_PreservesMethodDefinitions()
     {
         var strippedDll = StripTestApp();
@@ -121,20 +134,17 @@ public class TestAppTests : IDisposable
     }
 
     [Fact]
-    public async Task TestApp_ExecutesWithStubMain()
+    public async Task TestApp_ExecutesSuccessfully()
     {
-        // Ensure stripped version exists
         var strippedDll = StripTestApp();
 
-        // Run stripped version
         var strippedResult = await TestHelpers.RunDll(strippedDll);
         _output.WriteLine(strippedResult.Output);
 
-        // With stub Main method, we expect exit code 100
-        Assert.Equal(100, strippedResult.ExitCode);
+        Assert.Equal(0, strippedResult.ExitCode);
     }
 
-    [Fact(Skip = "TODO: Need to copy method definitions with proper IL bodies")]
+    [Fact]
     public async Task TestApp_ExecutesCorrectly()
     {
         // Ensure stripped version exists

@@ -14,6 +14,34 @@ namespace R2RStrip.Tests;
 internal static class TestHelpers
 {
     /// <summary>
+    /// Find the dotnet installation root directory.
+    /// Checks DOTNET_ROOT, then the running runtime's base path, then common install locations.
+    /// </summary>
+    public static string? FindDotnetRoot()
+    {
+        // 1. DOTNET_ROOT env var (set by setup-dotnet action and manual installs)
+        var envRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (!string.IsNullOrEmpty(envRoot) && Directory.Exists(envRoot))
+            return envRoot;
+
+        // 2. Derive from the running runtime — RuntimeEnvironment base is <root>/shared/<framework>/<version>/
+        var runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
+        // Walk up from e.g. /usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/
+        var candidate = Path.GetFullPath(Path.Combine(runtimeDir, "..", "..", ".."));
+        if (Directory.Exists(Path.Combine(candidate, "shared")))
+            return candidate;
+
+        // 3. Common install locations
+        string[] knownPaths = [
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/dnvm/dn"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dotnet"),
+            "/usr/share/dotnet",
+            "/usr/local/share/dotnet",
+        ];
+        return knownPaths.FirstOrDefault(p => Directory.Exists(Path.Combine(p, "shared")));
+    }
+
+    /// <summary>
     /// Run a command-line executable and capture output
     /// </summary>
     public static async Task<CommandResult> RunCommand(string executable, string arguments, string workingDir)
@@ -158,6 +186,70 @@ internal static class TestHelpers
     }
 
     /// <summary>
+    /// Get generic parameter information from an assembly
+    /// </summary>
+    public static List<GenericParamInfo> GetGenericParamInfo(string path)
+    {
+        using var stream = File.OpenRead(path);
+        using var peReader = new PEReader(stream);
+        var reader = peReader.GetMetadataReader();
+
+        var result = new List<GenericParamInfo>();
+        int count = reader.GetTableRowCount(TableIndex.GenericParam);
+        for (int i = 1; i <= count; i++)
+        {
+            var handle = MetadataTokens.GenericParameterHandle(i);
+            var gp = reader.GetGenericParameter(handle);
+            string ownerName;
+            if (gp.Parent.Kind == HandleKind.TypeDefinition)
+            {
+                var td = reader.GetTypeDefinition((TypeDefinitionHandle)gp.Parent);
+                ownerName = reader.GetString(td.Name);
+            }
+            else
+            {
+                var md = reader.GetMethodDefinition((MethodDefinitionHandle)gp.Parent);
+                ownerName = reader.GetString(md.Name);
+            }
+
+            result.Add(new GenericParamInfo
+            {
+                Name = reader.GetString(gp.Name),
+                Owner = ownerName,
+                Index = gp.Index
+            });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Compare all metadata table row counts between two assemblies.
+    /// Returns a list of differences (empty = identical).
+    /// </summary>
+    public static List<string> CompareMetadataTables(string expectedPath, string actualPath)
+    {
+        using var expectedStream = File.OpenRead(expectedPath);
+        using var expectedPe = new PEReader(expectedStream);
+        var expectedReader = expectedPe.GetMetadataReader();
+
+        using var actualStream = File.OpenRead(actualPath);
+        using var actualPe = new PEReader(actualStream);
+        var actualReader = actualPe.GetMetadataReader();
+
+        var diffs = new List<string>();
+        foreach (TableIndex table in Enum.GetValues<TableIndex>())
+        {
+            int expectedCount = expectedReader.GetTableRowCount(table);
+            int actualCount = actualReader.GetTableRowCount(table);
+            if (expectedCount != actualCount)
+            {
+                diffs.Add($"{table}: expected {expectedCount}, got {actualCount}");
+            }
+        }
+        return diffs;
+    }
+
+    /// <summary>
     /// Compare metadata between two assemblies to ensure they have the same structure
     /// </summary>
     public static void AssertMetadataMatches(string expectedPath, string actualPath)
@@ -216,12 +308,21 @@ internal static class TestHelpers
         {
             var resolver = new SimpleResolver();
 
-            // Add reference assemblies from .NET SDK
-            var refAssemblyPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".local/share/dnvm/dn/packs/Microsoft.NETCore.App.Ref/10.0.0/ref/net10.0");
+            // Add reference assemblies from .NET SDK (find the right version dynamically)
+            var dotnetRoot = FindDotnetRoot();
+            string? refAssemblyPath = null;
+            if (dotnetRoot != null)
+            {
+                var packsBase = Path.Combine(dotnetRoot, "packs", "Microsoft.NETCore.App.Ref");
+                if (Directory.Exists(packsBase))
+                {
+                    refAssemblyPath = Directory.GetDirectories(packsBase)
+                        .Select(d => Path.Combine(d, "ref", "net10.0"))
+                        .FirstOrDefault(Directory.Exists);
+                }
+            }
 
-            if (Directory.Exists(refAssemblyPath))
+            if (refAssemblyPath != null)
             {
                 foreach (var dll in Directory.GetFiles(refAssemblyPath, "*.dll"))
                 {
@@ -412,4 +513,14 @@ internal class AssemblyMetadataInfo
     public int CustomAttributeCount { get; init; }
     public List<string> TypeNames { get; init; } = new();
     public List<string> MethodNames { get; init; } = new();
+}
+
+/// <summary>
+/// Information about a generic parameter
+/// </summary>
+internal class GenericParamInfo
+{
+    public required string Name { get; init; }
+    public required string Owner { get; init; }
+    public required int Index { get; init; }
 }

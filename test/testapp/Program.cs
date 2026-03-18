@@ -13,6 +13,13 @@ Console.WriteLine($"5 * 6 = {result}");
 var person = new Person { Name = "Alice", Age = 30 };
 Console.WriteLine($"Person: {person.Name}, Age: {person.Age}");
 
+// Exercise generics
+var repo = new Repository<Person>();
+repo.Add(person);
+repo.Add(new Person { Name = "Bob", Age = 25 });
+Console.WriteLine($"Repository count: {repo.Count}");
+Console.WriteLine($"First: {repo.Get(0)}");
+
 public class Calculator
 {
     public int Add(int a, int b) => a + b;
@@ -35,5 +42,14 @@ public class Person
     public int Age { get; set; }
     
     public override string ToString() => $"{Name} ({Age})";
+}
+
+public class Repository<T> where T : class
+{
+    private readonly List<T> _items = new();
+
+    public void Add(T item) => _items.Add(item);
+    public T Get(int index) => _items[index];
+    public int Count => _items.Count;
 }
 

@@ -41,6 +41,8 @@ public class AssemblyRebuilder
         var metadataBuilder = new MetadataBuilder();
         var ilBuilder = new BlobBuilder();
         var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
+        var mappedFieldData = new BlobBuilder();
+        var managedResources = new BlobBuilder();
 
         // Find entry point
         var entryPointHandle = default(MethodDefinitionHandle);
@@ -61,7 +63,7 @@ public class AssemblyRebuilder
         }
 
         // Build metadata and IL
-        var copier = new MetadataCopier(metadataReader, metadataBuilder, _verbose);
+        var copier = new MetadataCopier(metadataReader, metadataBuilder, peReader, methodBodyEncoder, mappedFieldData, managedResources, _verbose);
         copier.CopyAll();
 
         if (_verbose)
