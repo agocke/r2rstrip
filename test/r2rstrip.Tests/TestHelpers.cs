@@ -14,6 +14,34 @@ namespace R2RStrip.Tests;
 internal static class TestHelpers
 {
     /// <summary>
+    /// Find the dotnet installation root directory.
+    /// Checks DOTNET_ROOT, then the running runtime's base path, then common install locations.
+    /// </summary>
+    public static string? FindDotnetRoot()
+    {
+        // 1. DOTNET_ROOT env var (set by setup-dotnet action and manual installs)
+        var envRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (!string.IsNullOrEmpty(envRoot) && Directory.Exists(envRoot))
+            return envRoot;
+
+        // 2. Derive from the running runtime — RuntimeEnvironment base is <root>/shared/<framework>/<version>/
+        var runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
+        // Walk up from e.g. /usr/share/dotnet/shared/Microsoft.NETCore.App/10.0.5/
+        var candidate = Path.GetFullPath(Path.Combine(runtimeDir, "..", "..", ".."));
+        if (Directory.Exists(Path.Combine(candidate, "shared")))
+            return candidate;
+
+        // 3. Common install locations
+        string[] knownPaths = [
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/dnvm/dn"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dotnet"),
+            "/usr/share/dotnet",
+            "/usr/local/share/dotnet",
+        ];
+        return knownPaths.FirstOrDefault(p => Directory.Exists(Path.Combine(p, "shared")));
+    }
+
+    /// <summary>
     /// Run a command-line executable and capture output
     /// </summary>
     public static async Task<CommandResult> RunCommand(string executable, string arguments, string workingDir)
@@ -281,16 +309,17 @@ internal static class TestHelpers
             var resolver = new SimpleResolver();
 
             // Add reference assemblies from .NET SDK (find the right version dynamically)
-            var packsBase = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".local/share/dnvm/dn/packs/Microsoft.NETCore.App.Ref");
-
+            var dotnetRoot = FindDotnetRoot();
             string? refAssemblyPath = null;
-            if (Directory.Exists(packsBase))
+            if (dotnetRoot != null)
             {
-                refAssemblyPath = Directory.GetDirectories(packsBase)
-                    .Select(d => Path.Combine(d, "ref", "net10.0"))
-                    .FirstOrDefault(Directory.Exists);
+                var packsBase = Path.Combine(dotnetRoot, "packs", "Microsoft.NETCore.App.Ref");
+                if (Directory.Exists(packsBase))
+                {
+                    refAssemblyPath = Directory.GetDirectories(packsBase)
+                        .Select(d => Path.Combine(d, "ref", "net10.0"))
+                        .FirstOrDefault(Directory.Exists);
+                }
             }
 
             if (refAssemblyPath != null)

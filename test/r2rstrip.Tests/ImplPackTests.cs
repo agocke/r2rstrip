@@ -99,10 +99,10 @@ public class ImplPackTests
 
     private static string? FindImplPackDir()
     {
-        var sharedBase = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".local/share/dnvm/dn/shared/Microsoft.NETCore.App");
+        var dotnetRoot = TestHelpers.FindDotnetRoot();
+        if (dotnetRoot == null) return null;
 
+        var sharedBase = Path.Combine(dotnetRoot, "shared", "Microsoft.NETCore.App");
         if (!Directory.Exists(sharedBase)) return null;
 
         return Directory.GetDirectories(sharedBase)
