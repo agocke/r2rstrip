@@ -158,6 +158,70 @@ internal static class TestHelpers
     }
 
     /// <summary>
+    /// Get generic parameter information from an assembly
+    /// </summary>
+    public static List<GenericParamInfo> GetGenericParamInfo(string path)
+    {
+        using var stream = File.OpenRead(path);
+        using var peReader = new PEReader(stream);
+        var reader = peReader.GetMetadataReader();
+
+        var result = new List<GenericParamInfo>();
+        int count = reader.GetTableRowCount(TableIndex.GenericParam);
+        for (int i = 1; i <= count; i++)
+        {
+            var handle = MetadataTokens.GenericParameterHandle(i);
+            var gp = reader.GetGenericParameter(handle);
+            string ownerName;
+            if (gp.Parent.Kind == HandleKind.TypeDefinition)
+            {
+                var td = reader.GetTypeDefinition((TypeDefinitionHandle)gp.Parent);
+                ownerName = reader.GetString(td.Name);
+            }
+            else
+            {
+                var md = reader.GetMethodDefinition((MethodDefinitionHandle)gp.Parent);
+                ownerName = reader.GetString(md.Name);
+            }
+
+            result.Add(new GenericParamInfo
+            {
+                Name = reader.GetString(gp.Name),
+                Owner = ownerName,
+                Index = gp.Index
+            });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Compare all metadata table row counts between two assemblies.
+    /// Returns a list of differences (empty = identical).
+    /// </summary>
+    public static List<string> CompareMetadataTables(string expectedPath, string actualPath)
+    {
+        using var expectedStream = File.OpenRead(expectedPath);
+        using var expectedPe = new PEReader(expectedStream);
+        var expectedReader = expectedPe.GetMetadataReader();
+
+        using var actualStream = File.OpenRead(actualPath);
+        using var actualPe = new PEReader(actualStream);
+        var actualReader = actualPe.GetMetadataReader();
+
+        var diffs = new List<string>();
+        foreach (TableIndex table in Enum.GetValues<TableIndex>())
+        {
+            int expectedCount = expectedReader.GetTableRowCount(table);
+            int actualCount = actualReader.GetTableRowCount(table);
+            if (expectedCount != actualCount)
+            {
+                diffs.Add($"{table}: expected {expectedCount}, got {actualCount}");
+            }
+        }
+        return diffs;
+    }
+
+    /// <summary>
     /// Compare metadata between two assemblies to ensure they have the same structure
     /// </summary>
     public static void AssertMetadataMatches(string expectedPath, string actualPath)
@@ -420,4 +484,14 @@ internal class AssemblyMetadataInfo
     public int CustomAttributeCount { get; init; }
     public List<string> TypeNames { get; init; } = new();
     public List<string> MethodNames { get; init; } = new();
+}
+
+/// <summary>
+/// Information about a generic parameter
+/// </summary>
+internal class GenericParamInfo
+{
+    public required string Name { get; init; }
+    public required string Owner { get; init; }
+    public required int Index { get; init; }
 }

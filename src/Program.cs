@@ -75,6 +75,8 @@ public class Program
         var metadataBuilder = new MetadataBuilder();
         var ilBuilder = new BlobBuilder();
         var methodBodyEncoder = new MethodBodyStreamEncoder(ilBuilder);
+        var mappedFieldData = new BlobBuilder();
+        var managedResources = new BlobBuilder();
 
         // Copy all metadata and IL bodies from source
         var copier = new MetadataCopier(
@@ -82,6 +84,8 @@ public class Program
             metadataBuilder,
             peReader,
             methodBodyEncoder,
+            mappedFieldData,
+            managedResources,
             verbose);
 
         copier.CopyAll();
@@ -92,6 +96,8 @@ public class Program
             header: new PEHeaderBuilder(imageCharacteristics: Characteristics.ExecutableImage | Characteristics.Dll),
             metadataRootBuilder: metadataRootBuilder,
             ilStream: ilBuilder,
+            mappedFieldData: mappedFieldData,
+            managedResources: managedResources,
             entryPoint: entryPointHandle,
             flags: CorFlags.ILOnly,
             deterministicIdProvider: content => new BlobContentId(Guid.NewGuid(), 0x04030201));

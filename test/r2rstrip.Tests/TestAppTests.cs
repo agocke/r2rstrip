@@ -97,6 +97,19 @@ public class TestAppTests : IDisposable
         var metadata = TestHelpers.GetMetadataInfo(strippedDll);
         Assert.Contains("Calculator", metadata.TypeNames);
         Assert.Contains("Person", metadata.TypeNames);
+        Assert.Contains("Repository`1", metadata.TypeNames);
+    }
+
+    [Fact]
+    public void TestApp_PreservesGenericParameters()
+    {
+        var strippedDll = StripTestApp();
+
+        // Verify generic parameter metadata survives stripping
+        var genericInfo = TestHelpers.GetGenericParamInfo(strippedDll);
+
+        // Repository<T> should have one generic param "T"
+        Assert.Contains(genericInfo, g => g.Owner == "Repository`1" && g.Name == "T");
     }
 
     [Fact]
