@@ -13,7 +13,7 @@
     <Version>0.1.0</Version>
     <Authors>agocke</Authors>
     <Description>Strips ReadyToRun (R2R) native images from .NET PE assemblies, producing IL-only output with all metadata preserved.</Description>
-    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/agocke/r2rstrip</PackageProjectUrl>
     <RepositoryUrl>https://github.com/agocke/r2rstrip.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
