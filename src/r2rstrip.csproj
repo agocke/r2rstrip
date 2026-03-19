@@ -10,7 +10,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>r2rstrip</ToolCommandName>
     <PackageId>r2rstrip</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>agocke</Authors>
     <Description>Strips ReadyToRun (R2R) native images from .NET PE assemblies, producing IL-only output with all metadata preserved.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
