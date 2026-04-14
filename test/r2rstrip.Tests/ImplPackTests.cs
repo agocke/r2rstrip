@@ -1,4 +1,5 @@
 using System.Reflection.PortableExecutable;
+using R2RStrip;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -49,7 +50,7 @@ public class ImplPackTests
 
         try
         {
-            Program.StripR2R(inputPath, outputPath);
+            R2RStripper.Strip(inputPath, outputPath);
 
             Assert.True(TestHelpers.IsValidManagedPE(outputPath),
                 $"{assemblyName}: should produce a valid managed PE");

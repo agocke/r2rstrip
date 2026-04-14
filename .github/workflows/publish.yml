@@ -27,7 +27,9 @@ jobs:
         run: dotnet test test/r2rstrip.Tests -c Release
 
       - name: Pack
-        run: dotnet pack src -c Release -p:Version=${{ steps.version.outputs.VERSION }} -o ./artifacts
+        run: |
+          dotnet pack src -c Release -p:Version=${{ steps.version.outputs.VERSION }} -o ./artifacts
+          dotnet pack src/r2rstrip.lib -c Release -p:Version=${{ steps.version.outputs.VERSION }} -o ./artifacts
 
       - name: NuGet login (OIDC)
         id: login

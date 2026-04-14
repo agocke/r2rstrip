@@ -2,6 +2,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
+namespace R2RStrip;
 
 /// <summary>
 /// Rebuilds an R2R assembly as an IL-only assembly with correct RVAs.
