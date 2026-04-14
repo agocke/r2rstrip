@@ -4,6 +4,7 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using ILVerify;
+using R2RStrip;
 using Xunit.Abstractions;
 
 namespace R2RStrip.Tests;
@@ -289,11 +290,11 @@ internal static class TestHelpers
     }
 
     /// <summary>
-    /// Strip an R2R assembly by calling Program.Main directly
+    /// Strip an R2R assembly using R2RStripper
     /// </summary>
     public static int StripAssembly(string inputPath, string outputPath, bool verbose = false)
     {
-        Program.StripR2R(inputPath, outputPath, verbose);
+        R2RStripper.Strip(inputPath, outputPath, verbose);
         return 0;
     }
 

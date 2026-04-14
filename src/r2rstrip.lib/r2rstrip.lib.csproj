@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Source-only NuGet package: ships .cs files, not a compiled DLL -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+
+    <PackageId>r2rstrip.lib</PackageId>
+    <Version>0.1.1</Version>
+    <Authors>agocke</Authors>
+    <Description>Source package for stripping ReadyToRun (R2R) native images from .NET PE assemblies, producing IL-only output with all metadata preserved. Adds .cs files directly to your project.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/agocke/r2rstrip</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/agocke/r2rstrip.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>dotnet;r2r;readytorun;il;pe;metadata;source</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" Condition="Exists('../../README.md')" />
+  </ItemGroup>
+
+  <!-- Pack source files as contentFiles so they compile in consuming projects -->
+  <ItemGroup>
+    <None Include="R2RStripper.cs" Pack="true" PackagePath="contentFiles/cs/any/R2RStrip/" BuildAction="Compile" />
+    <None Include="MetadataCopier.cs" Pack="true" PackagePath="contentFiles/cs/any/R2RStrip/" BuildAction="Compile" />
+    <None Include="AssemblyRebuilder.cs" Pack="true" PackagePath="contentFiles/cs/any/R2RStrip/" BuildAction="Compile" />
+  </ItemGroup>
+
+</Project>

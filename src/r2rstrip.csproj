@@ -22,7 +22,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="r2rstrip.lib/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="../README.md" Pack="true" PackagePath="/" Condition="Exists('../README.md')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="r2rstrip.lib/r2rstrip.lib.csproj" />
   </ItemGroup>
 
 </Project>

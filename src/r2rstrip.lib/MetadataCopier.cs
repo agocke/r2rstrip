@@ -3,6 +3,8 @@ using System.Reflection.PortableExecutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 
+namespace R2RStrip;
+
 /// <summary>
 /// Copies metadata and IL from source assembly to target builder.
 /// Since we copy all metadata in order, tokens are naturally preserved - no mapping needed.

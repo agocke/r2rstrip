@@ -4,15 +4,39 @@ Strips ReadyToRun (R2R) native images from .NET PE assemblies, producing IL-only
 
 ## Installation
 
+### As a .NET global tool
+
 ```bash
 dotnet tool install -g r2rstrip
 ```
 
+### As a NuGet source package
+
+```bash
+dotnet add package r2rstrip.lib
+```
+
+This adds the source files directly to your project — no extra DLL dependency.
+
 ## Usage
+
+### Command-line tool
 
 ```bash
 r2rstrip <input-r2r-file> <output-file>
 r2rstrip -v <input-r2r-file> <output-file>   # verbose
+```
+
+### Library API
+
+```csharp
+using R2RStrip;
+
+// Strip an R2R assembly to an IL-only assembly
+R2RStripper.Strip("input.dll", "output.dll");
+
+// With verbose output
+R2RStripper.Strip("input.dll", "output.dll", verbose: true);
 ```
 
 ## What it does
