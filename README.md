@@ -10,11 +10,13 @@ Strips ReadyToRun (R2R) native images from .NET PE assemblies, producing IL-only
 dotnet tool install -g r2rstrip
 ```
 
-### As a NuGet library
+### As a NuGet source package
 
 ```bash
 dotnet add package r2rstrip.lib
 ```
+
+This adds the source files directly to your project — no extra DLL dependency.
 
 ## Usage
 
